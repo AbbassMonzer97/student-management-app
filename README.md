@@ -1,151 +1,94 @@
-# Student Management App
+# Student Management System
 
-A modern React application for managing students and their class enrollments. Built with React, Vite, Tailwind CSS, and Axios.
+A modern React application for managing students and their class enrollments with a clean, intuitive interface.
 
-## Features
+## ✨ Features
 
-- **Student Listing**: View paginated list of students with their enrolled classes
-- **Add Student**: Create new students and assign them to classes
-- **Edit Student**: Update student information and class enrollments
-- **Delete Student**: Remove students with confirmation dialog
-- **Responsive Design**: Works on desktop and tablet devices
-- **Modern UI**: Clean, minimal interface with loading states and error handling
+- **Student Management**: Create, read, update, and delete student records
+- **Class Management**: Assign multiple classes to students
+- **Pagination**: Navigate through student records efficiently
+- **Interactive Chatbot**: AI-powered assistant for help and guidance
+- **Form Validation**: Real-time validation with React Hook Form
+- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
 
-## Tech Stack
+## 🛠 Technologies
 
-- **React 18** - UI library
-- **Vite** - Build tool and dev server
-- **Tailwind CSS** - Styling
-- **Axios** - HTTP client for API calls
+- **React 18.2.0** - UI library
+- **Vite 5.0.8** - Build tool
+- **React Hook Form** - Form management
+- **Axios 1.6.0** - HTTP client
+- **Tailwind CSS 3.4.0** - Styling
 
-## Project Structure
+## 🚀 Getting Started
 
-```
-src/
-├── api/
-│   ├── client.js          # Axios instance with base configuration
-│   ├── studentsApi.js     # Student-related API calls (CRUD operations)
-│   └── classesApi.js      # Class-related API calls
-├── components/
-│   ├── Layout.jsx         # Main layout wrapper
-│   ├── StudentTable.jsx   # Table displaying students list
-│   ├── StudentForm.jsx    # Form for creating/editing students
-│   ├── Pagination.jsx    # Pagination controls
-│   ├── ConfirmDialog.jsx # Delete confirmation dialog
-│   └── Toast.jsx         # Toast notification component
-├── pages/
-│   └── StudentsPage.jsx  # Main page with student management logic
-├── App.jsx               # Root component
-├── main.jsx              # Application entry point
-└── index.css             # Global styles and Tailwind imports
-```
-
-## Installation
-
-1. **Install dependencies:**
-
-   ```bash
-   npm install
-   ```
-
-2. **Configure API URL (if needed):**
-   The API base URL is configured in `src/api/client.js`. Update the `BASE_URL` constant if your API endpoint changes.
-
-## Running the Application
-
-**Start the development server:**
+### Installation
 
 ```bash
+# Install dependencies
+npm install
+
+# Create .env file
+VITE_API_BASE_URL=http://your-api-base-url
+VITE_CHATBOT_API=https://your-chatbot-webhook-url
+
+# Start development server
 npm run dev
-```
 
-The application will be available at `http://localhost:5173` (or the port shown in the terminal).
-
-**Build for production:**
-
-```bash
+# Build for production
 npm run build
 ```
 
-**Preview production build:**
-
-```bash
-npm run preview
-```
-
-## API Integration
-
-The application connects to the Student Management API. The API base URL is:
+## 📁 Project Structure
 
 ```
-https://app-inttask-api-g2axe2gvgqgadyha.westeurope-01.azurewebsites.net
+src/
+├── components/     # Reusable UI components
+├── pages/          # Page components
+├── services/       # API service layer
+└── types/          # Data transfer objects
 ```
 
-### API Endpoints Used
+## 🔄 Recent Improvements
 
-- `GET /api/Student` - Get paginated list of students
-- `GET /api/Class` - Get all available classes
-- `POST /api/Student` - Create a new student
-- `PUT /api/Student/{id}` - Update an existing student
-- `DELETE /api/Student/{id}` - Delete a student
+1. **React Hook Form Integration** - Migrated from manual form state to React Hook Form for better performance
+2. **Optimized State Management** - Grouped related states to minimize re-renders
+3. **Service Layer Refactoring** - Renamed `api/` to `services/` with cleaner naming
+4. **Enhanced Error Handling** - Improved error interceptor with HTML response handling
+5. **Component Improvements** - Added forwardRef support, fixed event handlers
 
-**Note:** The API client includes fallback logic to try alternative endpoint patterns (`/api/students`, `/api/classes`) if the primary endpoints return 404.
+### Design Decisions
 
-## Main Features
+For simplicity, I intentionally choose not to use:
 
-### Students Page (`src/pages/StudentsPage.jsx`)
+- **API Context or State Management Libraries** (Redux, Zustand, etc.) - The project is small enough that local state management is sufficient
+- **useReducer** - While it could reduce useState calls, the current grouped state approach is simpler for this scale
+- **Separate UI Component Folders** - Could create `forms/` or `inputs/` folders for reusable components, but the current structure is adequate for the project size
 
-- Fetches and displays students with pagination (5 students per page)
-- Handles loading, error, and empty states
-- Manages modal dialogs for add/edit forms and delete confirmation
-- Shows toast notifications for success/error messages
+These decisions were made consciously to keep the codebase simple and maintainable for a small-scale application, while still following React best practices.
 
-### Student Form (`src/components/StudentForm.jsx`)
+## ⚙️ Configuration
 
-- Supports both "name" field and "firstName/lastName" fields (adapts to API structure)
-- Multi-select class enrollment with checkboxes
-- Form validation (required fields, email format)
-- Loading states during submission
+### Environment Variables
 
-### Student Table (`src/components/StudentTable.jsx`)
+- `VITE_API_BASE_URL` - Base URL for student management API
+- `VITE_CHATBOT_API` - Webhook URL for chatbot service
 
-- Displays student information in a responsive table
-- Shows enrolled classes as badges/pills
-- Edit and Delete action buttons
-- Loading skeleton and empty state handling
+### API Endpoints
 
-## Configuration
+- `GET /api/Student` - Get students (with pagination)
+- `GET /api/Student/:id` - Get single student
+- `POST /api/Student` - Create student
+- `PUT /api/Student/:id` - Update student
+- `DELETE /api/Student/:id` - Delete student
+- `GET /api/Class` - Get all classes
 
-### Changing the API Base URL
+### Scripts
 
-Edit `src/api/client.js`:
+- `npm run dev` - Start dev server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
-```javascript
-const BASE_URL = "https://your-api-url.com";
-```
+---
 
-### Adjusting Pagination
-
-Edit `src/pages/StudentsPage.jsx`:
-
-```javascript
-const pageSize = 5; // Change this value
-```
-
-## Browser Support
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-
-## Development Notes
-
-- All components use functional components with React hooks
-- The API client includes error interceptors for consistent error handling
-- The application handles various API response structures for flexibility
-- Form validation is performed on the client side before submission
-
-## API Improvements
-
-See `API_IMPROVEMENTS.md` for suggestions on improving the backend API, including security, structure, data modeling, and documentation recommendations.
+**Last Updated**: January 2025

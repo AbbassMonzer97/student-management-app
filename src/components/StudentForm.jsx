@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getClasses } from "../api/classesApi";
+import { useForm, Controller } from "react-hook-form";
+import { getClasses } from "../services/classes";
 import { createStudentCreateUpdateDto } from "../types/studentDto";
 import Input from "./Input";
 
@@ -10,15 +11,23 @@ const StudentForm = ({
   onSubmit,
   isLoading = false,
 }) => {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    dateOfBirth: "",
-    classIds: [],
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+    reset,
+  } = useForm({
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      dateOfBirth: "",
+      classIds: [],
+    },
   });
+
   const [availableClasses, setAvailableClasses] = useState([]);
-  const [errors, setErrors] = useState({});
   const [loadingClasses, setLoadingClasses] = useState(false);
 
   useEffect(() => {
@@ -46,25 +55,23 @@ const StudentForm = ({
         }
       }
 
-      setFormData({
+      reset({
         firstName: student.firstName || "",
         lastName: student.lastName || "",
         email: student.email || "",
         dateOfBirth: formattedDateOfBirth,
         classIds: classIds,
       });
-      setErrors({});
     } else if (isOpen) {
-      setFormData({
+      reset({
         firstName: "",
         lastName: "",
         email: "",
         dateOfBirth: "",
         classIds: [],
       });
-      setErrors({});
     }
-  }, [isOpen, student]);
+  }, [isOpen, student, reset]);
 
   const loadClasses = async () => {
     setLoadingClasses(true);
@@ -77,96 +84,45 @@ const StudentForm = ({
       setAvailableClasses(classes);
     } catch (error) {
       console.error("Failed to load classes:", error);
-      setErrors({ classes: "Failed to load classes. Please try again." });
     } finally {
       setLoadingClasses(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const validateDateOfBirth = (dateString) => {
+    if (!dateString) return true; // Optional field
 
-    if (errors[name]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return "Please enter a valid date";
     }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateOfBirth = new Date(date);
+    dateOfBirth.setHours(0, 0, 0, 0);
+
+    if (dateOfBirth > today) {
+      return "Date of birth cannot be after today's date";
+    }
+
+    return true;
   };
 
-  const handleClassToggle = (classId) => {
-    setFormData((prev) => {
-      const classIds = prev.classIds.includes(classId)
-        ? prev.classIds.filter((id) => id !== classId)
-        : [...prev.classIds, classId];
-      return { ...prev, classIds };
-    });
-    if (errors.classIds) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors.classIds;
-        return newErrors;
-      });
+  const validateClassIds = (classIds) => {
+    if (!classIds || classIds.length === 0) {
+      return "Please select at least one class";
     }
+    return true;
   };
 
-  const validate = () => {
-    const newErrors = {};
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
-    }
-
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    if (formData.dateOfBirth) {
-      const date = new Date(formData.dateOfBirth);
-      if (isNaN(date.getTime())) {
-        newErrors.dateOfBirth = "Please enter a valid date";
-      } else {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dateOfBirth = new Date(date);
-        dateOfBirth.setHours(0, 0, 0, 0);
-
-        if (dateOfBirth > today) {
-          newErrors.dateOfBirth = "Date of birth cannot be after today's date";
-        }
-      }
-    }
-
-    if (formData.classIds.length === 0) {
-      newErrors.classIds = "Please select at least one class";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!validate()) {
-      return;
-    }
-
+  const onSubmitForm = (data) => {
     const payload = createStudentCreateUpdateDto({
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      email: formData.email.trim(),
-      dateOfBirth: formData.dateOfBirth,
-      classIds: formData.classIds,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: data.email.trim(),
+      dateOfBirth: data.dateOfBirth,
+      classIds: data.classIds,
     });
 
     onSubmit(payload);
@@ -207,7 +163,7 @@ const StudentForm = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit(onSubmitForm)} className="p-6 space-y-6">
           {student && (
             <Input
               label="ID"
@@ -218,55 +174,74 @@ const StudentForm = ({
             />
           )}
 
-          <Input
-            label="First Name"
-            id="firstName"
-            name="firstName"
-            type="text"
-            value={formData.firstName}
-            onChange={handleChange}
-            placeholder="Enter first name"
-            error={errors.firstName}
-            required={true}
-            disabled={isLoading}
-          />
+          <div>
+            <Input
+              label="First Name"
+              id="firstName"
+              name="firstName"
+              type="text"
+              {...register("firstName", {
+                required: "First name is required",
+                validate: (value) =>
+                  value.trim() !== "" || "First name is required",
+              })}
+              placeholder="Enter first name"
+              error={errors.firstName?.message}
+              required={true}
+              disabled={isLoading}
+            />
+          </div>
 
-          <Input
-            label="Last Name"
-            id="lastName"
-            name="lastName"
-            type="text"
-            value={formData.lastName}
-            onChange={handleChange}
-            placeholder="Enter last name"
-            error={errors.lastName}
-            required={true}
-            disabled={isLoading}
-          />
+          <div>
+            <Input
+              label="Last Name"
+              id="lastName"
+              name="lastName"
+              type="text"
+              {...register("lastName", {
+                required: "Last name is required",
+                validate: (value) =>
+                  value.trim() !== "" || "Last name is required",
+              })}
+              placeholder="Enter last name"
+              error={errors.lastName?.message}
+              required={true}
+              disabled={isLoading}
+            />
+          </div>
 
-          <Input
-            label="Email"
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="student@example.com"
-            error={errors.email}
-            disabled={isLoading}
-          />
+          <div>
+            <Input
+              label="Email"
+              id="email"
+              name="email"
+              type="email"
+              {...register("email", {
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: "Please enter a valid email address",
+                },
+              })}
+              placeholder="student@example.com"
+              error={errors.email?.message}
+              disabled={isLoading}
+            />
+          </div>
 
-          <Input
-            label="Date of Birth"
-            id="dateOfBirth"
-            name="dateOfBirth"
-            type="date"
-            value={formData.dateOfBirth}
-            onChange={handleChange}
-            max={new Date().toISOString().split("T")[0]}
-            error={errors.dateOfBirth}
-            disabled={isLoading}
-          />
+          <div>
+            <Input
+              label="Date of Birth"
+              id="dateOfBirth"
+              name="dateOfBirth"
+              type="date"
+              {...register("dateOfBirth", {
+                validate: validateDateOfBirth,
+              })}
+              max={new Date().toISOString().split("T")[0]}
+              error={errors.dateOfBirth?.message}
+              disabled={isLoading}
+            />
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -274,42 +249,68 @@ const StudentForm = ({
             </label>
             {loadingClasses ? (
               <div className="text-sm text-gray-500">Loading classes...</div>
-            ) : errors.classes ? (
-              <div className="text-sm text-red-600">{errors.classes}</div>
             ) : (
-              <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
-                {availableClasses.length === 0 ? (
-                  <p className="text-sm text-gray-500">No classes available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {availableClasses.map((cls) => {
-                      const classId = getClassId(cls);
-                      const className = getClassName(cls);
-                      const isSelected = formData.classIds.includes(classId);
-                      return (
-                        <label
-                          key={classId}
-                          className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleClassToggle(classId)}
-                            disabled={isLoading}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {className}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+              <Controller
+                name="classIds"
+                control={control}
+                rules={{ validate: validateClassIds }}
+                render={({ field }) => (
+                  <>
+                    <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
+                      {availableClasses.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                          No classes available
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {availableClasses.map((cls) => {
+                            const classId = getClassId(cls);
+                            const className = getClassName(cls);
+                            const isSelected =
+                              field.value?.includes(classId) || false;
+                            return (
+                              <label
+                                key={classId}
+                                className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const currentValue = field.value || [];
+                                    if (e.target.checked) {
+                                      field.onChange([
+                                        ...currentValue,
+                                        classId,
+                                      ]);
+                                    } else {
+                                      field.onChange(
+                                        currentValue.filter(
+                                          (id) => id !== classId
+                                        )
+                                      );
+                                    }
+                                  }}
+                                  disabled={isLoading}
+                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">
+                                  {className}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {errors.classIds && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.classIds.message}
+                      </p>
+                    )}
+                  </>
                 )}
-              </div>
-            )}
-            {errors.classIds && (
-              <p className="mt-1 text-sm text-red-600">{errors.classIds}</p>
+              />
             )}
           </div>
 

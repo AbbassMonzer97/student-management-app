@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getStudents,
   createStudent,
   updateStudent,
   deleteStudent,
-} from "../api/studentsApi";
+} from "../services/students";
 import StudentTable from "../components/StudentTable";
 import StudentForm from "../components/StudentForm";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -12,20 +12,30 @@ import Pagination from "../components/Pagination";
 import Toast from "../components/Toast";
 
 const StudentsPage = () => {
-  const [students, setStudents] = useState([]);
-  const [allStudents, setAllStudents] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [dataState, setDataState] = useState({
+    students: [],
+    allStudents: [],
+    error: null,
+  });
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [deletingStudent, setDeletingStudent] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+  });
+
+  const [loading, setLoading] = useState({
+    isLoading: true,
+    isSubmitting: false,
+    isDeleting: false,
+  });
+
+  const [uiState, setUiState] = useState({
+    isFormOpen: false,
+    isDeleteDialogOpen: false,
+    editingStudent: null,
+    deletingStudent: null,
+  });
 
   const [toast, setToast] = useState({
     isVisible: false,
@@ -35,9 +45,13 @@ const StudentsPage = () => {
 
   const pageSize = 5;
 
-  const fetchAllStudents = async () => {
-    setIsLoading(true);
-    setError(null);
+  const showToast = useCallback((message, type = "info") => {
+    setToast({ isVisible: true, message, type });
+  }, []);
+
+  const fetchAllStudents = useCallback(async () => {
+    setLoading((prev) => ({ ...prev, isLoading: true }));
+    setDataState((prev) => ({ ...prev, error: null }));
     try {
       const response = await getStudents({ page: 1, pageSize: 1000 });
 
@@ -57,121 +71,155 @@ const StudentsPage = () => {
         }
       }
 
-      setAllStudents(allStudentsData);
-      setTotalCount(allStudentsData.length);
-      setTotalPages(Math.ceil(allStudentsData.length / pageSize) || 1);
+      const totalCount = allStudentsData.length;
+      const totalPages = Math.ceil(totalCount / pageSize) || 1;
+
+      setDataState((prev) => ({ ...prev, allStudents: allStudentsData }));
+      setPagination((prev) => ({ ...prev, totalCount, totalPages }));
 
       return allStudentsData;
     } catch (err) {
       console.error("Failed to fetch students:", err);
-      setError(err.message || "Failed to load students. Please try again.");
+      const errorMessage =
+        err.message || "Failed to load students. Please try again.";
+      setDataState((prev) => ({ ...prev, error: errorMessage }));
       showToast("Failed to load students. Please try again.", "error");
       return [];
     } finally {
-      setIsLoading(false);
+      setLoading((prev) => ({ ...prev, isLoading: false }));
     }
-  };
+  }, [pageSize, showToast]);
 
-  const paginateStudents = (studentsList, page = 1) => {
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedStudents = studentsList.slice(startIndex, endIndex);
-    setStudents(paginatedStudents);
-    setCurrentPage(page);
-  };
+  const paginateStudents = useCallback(
+    (studentsList, page = 1) => {
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedStudents = studentsList.slice(startIndex, endIndex);
+      setDataState((prev) => ({ ...prev, students: paginatedStudents }));
+      setPagination((prev) => ({ ...prev, currentPage: page }));
+    },
+    [pageSize]
+  );
 
-  const fetchStudents = async (page = 1, forceRefresh = false) => {
-    if (!forceRefresh && allStudents.length > 0) {
-      paginateStudents(allStudents, page);
-      return;
-    }
+  const fetchStudents = useCallback(
+    async (page = 1, forceRefresh = false) => {
+      if (!forceRefresh && dataState.allStudents.length > 0) {
+        paginateStudents(dataState.allStudents, page);
+        return;
+      }
 
-    const fetchedStudents = await fetchAllStudents();
+      const fetchedStudents = await fetchAllStudents();
 
-    if (fetchedStudents.length > 0) {
-      paginateStudents(fetchedStudents, page);
-    }
-  };
+      if (fetchedStudents.length > 0) {
+        paginateStudents(fetchedStudents, page);
+      }
+    },
+    [dataState.allStudents, fetchAllStudents, paginateStudents]
+  );
 
   useEffect(() => {
-    fetchStudents(currentPage);
+    fetchStudents(pagination.currentPage);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handlePageChange = useCallback(
+    (newPage) => {
+      fetchStudents(newPage);
+    },
+    [fetchStudents]
+  );
+
+  const handleAddClick = useCallback(() => {
+    setUiState({
+      isFormOpen: true,
+      isDeleteDialogOpen: false,
+      editingStudent: null,
+      deletingStudent: null,
+    });
   }, []);
 
-  const showToast = (message, type = "info") => {
-    setToast({ isVisible: true, message, type });
-  };
+  const handleEditClick = useCallback((student) => {
+    setUiState((prev) => ({
+      ...prev,
+      editingStudent: student,
+      isFormOpen: true,
+    }));
+  }, []);
 
-  const handlePageChange = (newPage) => {
-    fetchStudents(newPage);
-  };
+  const handleDeleteClick = useCallback((student) => {
+    setUiState((prev) => ({
+      ...prev,
+      deletingStudent: student,
+      isDeleteDialogOpen: true,
+    }));
+  }, []);
 
-  const handleAddClick = () => {
-    setEditingStudent(null);
-    setIsFormOpen(true);
-  };
+  const handleFormSubmit = useCallback(
+    async (formData) => {
+      setLoading((prev) => ({ ...prev, isSubmitting: true }));
+      try {
+        const wasEditing = !!uiState.editingStudent;
 
-  const handleEditClick = (student) => {
-    setEditingStudent(student);
-    setIsFormOpen(true);
-  };
+        if (uiState.editingStudent) {
+          await updateStudent(uiState.editingStudent.id, formData);
+          showToast("Student updated successfully!", "success");
+        } else {
+          await createStudent(formData);
+          showToast("Student created successfully!", "success");
+        }
 
-  const handleDeleteClick = (student) => {
-    setDeletingStudent(student);
-    setIsDeleteDialogOpen(true);
-  };
+        setUiState((prev) => ({
+          ...prev,
+          isFormOpen: false,
+          editingStudent: null,
+        }));
 
-  const handleFormSubmit = async (formData) => {
-    setIsSubmitting(true);
-    try {
-      const wasEditing = !!editingStudent;
-
-      if (editingStudent) {
-        await updateStudent(editingStudent.id, formData);
-        showToast("Student updated successfully!", "success");
-      } else {
-        await createStudent(formData);
-        showToast("Student created successfully!", "success");
+        const updatedStudents = await fetchAllStudents();
+        if (wasEditing) {
+          paginateStudents(updatedStudents, pagination.currentPage);
+        } else {
+          setPagination((prev) => ({ ...prev, currentPage: 1 }));
+          paginateStudents(updatedStudents, 1);
+        }
+      } catch (err) {
+        console.error("Failed to save student:", err);
+        showToast(
+          err.message || "Failed to save student. Please try again.",
+          "error"
+        );
+      } finally {
+        setLoading((prev) => ({ ...prev, isSubmitting: false }));
       }
+    },
+    [
+      uiState.editingStudent,
+      pagination.currentPage,
+      fetchAllStudents,
+      paginateStudents,
+      showToast,
+    ]
+  );
 
-      setIsFormOpen(false);
-      setEditingStudent(null);
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!uiState.deletingStudent) return;
 
-      const updatedStudents = await fetchAllStudents();
-      if (wasEditing) {
-        paginateStudents(updatedStudents, currentPage);
-      } else {
-        setCurrentPage(1);
-        paginateStudents(updatedStudents, 1);
-      }
-    } catch (err) {
-      console.error("Failed to save student:", err);
-      showToast(
-        err.message || "Failed to save student. Please try again.",
-        "error"
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deletingStudent) return;
-
-    setIsDeleting(true);
+    setLoading((prev) => ({ ...prev, isDeleting: true }));
     try {
-      await deleteStudent(deletingStudent.id);
+      await deleteStudent(uiState.deletingStudent.id);
       showToast("Student deleted successfully!", "success");
-      setIsDeleteDialogOpen(false);
-      setDeletingStudent(null);
+      setUiState((prev) => ({
+        ...prev,
+        isDeleteDialogOpen: false,
+        deletingStudent: null,
+      }));
 
       const updatedStudents = await fetchAllStudents();
 
       const remainingCount = updatedStudents.length;
       const newTotalPages = Math.ceil(remainingCount / pageSize);
-      if (currentPage > newTotalPages && newTotalPages > 0) {
+      if (pagination.currentPage > newTotalPages && newTotalPages > 0) {
         paginateStudents(updatedStudents, newTotalPages);
       } else {
-        paginateStudents(updatedStudents, currentPage);
+        paginateStudents(updatedStudents, pagination.currentPage);
       }
     } catch (err) {
       console.error("Failed to delete student:", err);
@@ -180,13 +228,20 @@ const StudentsPage = () => {
         "error"
       );
     } finally {
-      setIsDeleting(false);
+      setLoading((prev) => ({ ...prev, isDeleting: false }));
     }
-  };
+  }, [
+    uiState.deletingStudent,
+    pagination.currentPage,
+    pageSize,
+    fetchAllStudents,
+    paginateStudents,
+    showToast,
+  ]);
 
-  const handleRetry = () => {
-    fetchStudents(currentPage);
-  };
+  const handleRetry = useCallback(() => {
+    fetchStudents(pagination.currentPage);
+  }, [fetchStudents, pagination.currentPage]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -195,14 +250,14 @@ const StudentsPage = () => {
         <p className="text-gray-600">Manage students and their classes</p>
       </div>
 
-      {error && !isLoading && (
+      {dataState.error && !loading.isLoading && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium text-red-800">
                 Error loading students
               </h3>
-              <p className="text-sm text-red-600 mt-1">{error}</p>
+              <p className="text-sm text-red-600 mt-1">{dataState.error}</p>
             </div>
             <button
               onClick={handleRetry}
@@ -224,40 +279,43 @@ const StudentsPage = () => {
       </div>
 
       <StudentTable
-        students={students}
+        students={dataState.students}
         onEdit={handleEditClick}
         onDelete={handleDeleteClick}
-        isLoading={isLoading}
+        isLoading={loading.isLoading}
       />
 
-      {!isLoading && students.length > 0 && (
+      {!loading.isLoading && dataState.students.length > 0 && (
         <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
           onPageChange={handlePageChange}
-          isLoading={isLoading}
+          isLoading={loading.isLoading}
         />
       )}
 
       <StudentForm
-        isOpen={isFormOpen}
-        student={editingStudent}
+        isOpen={uiState.isFormOpen}
+        student={uiState.editingStudent}
         onClose={() => {
-          setIsFormOpen(false);
-          setEditingStudent(null);
+          setUiState((prev) => ({
+            ...prev,
+            isFormOpen: false,
+            editingStudent: null,
+          }));
         }}
         onSubmit={handleFormSubmit}
-        isLoading={isSubmitting}
+        isLoading={loading.isSubmitting}
       />
 
       <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
+        isOpen={uiState.isDeleteDialogOpen}
         title="Delete Student"
         message={`Are you sure you want to delete ${
-          deletingStudent
-            ? deletingStudent.name ||
-              `${deletingStudent.firstName || ""} ${
-                deletingStudent.lastName || ""
+          uiState.deletingStudent
+            ? uiState.deletingStudent.name ||
+              `${uiState.deletingStudent.firstName || ""} ${
+                uiState.deletingStudent.lastName || ""
               }`.trim() ||
               "this student"
             : "this student"
@@ -266,10 +324,13 @@ const StudentsPage = () => {
         cancelText="Cancel"
         onConfirm={handleDeleteConfirm}
         onCancel={() => {
-          setIsDeleteDialogOpen(false);
-          setDeletingStudent(null);
+          setUiState((prev) => ({
+            ...prev,
+            isDeleteDialogOpen: false,
+            deletingStudent: null,
+          }));
         }}
-        isLoading={isDeleting}
+        isLoading={loading.isDeleting}
       />
 
       <Toast

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { sendChatMessage } from "../api/chatApi";
+import { sendChatMessage } from "../services/chat";
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -211,7 +211,11 @@ const Chatbot = () => {
                     className="animate-spin h-5 w-5"
                   />
                 ) : (
-                  <img src="/send-icon.svg" alt="Send" className="h-5 w-5" />
+                  <img
+                    src="/send-icon.svg"
+                    alt="Send"
+                    className="h-5 w-5 brightness-0 invert"
+                  />
                 )}
               </button>
             </div>
