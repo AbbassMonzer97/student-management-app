@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Blue circular background -->
+  <circle cx="32" cy="32" r="32" fill="#2563eb"/>
+  
+  <!-- Person's head (circle) -->
+  <circle cx="32" cy="28" r="8" fill="white"/>
+  
+  <!-- Person's shoulders (curved shape) -->
+  <path d="M 20 36 Q 32 40 44 36 L 44 42 Q 32 46 20 42 Z" fill="white"/>
+  
+  <!-- Graduation cap base -->
+  <rect x="22" y="18" width="20" height="4" fill="white" rx="1"/>
+  
+  <!-- Graduation cap top -->
+  <rect x="24" y="16" width="16" height="6" fill="white" rx="1"/>
+  
+  <!-- Tassel hanging on left -->
+  <line x1="22" y1="20" x2="18" y2="24" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="18" cy="24" r="1.5" fill="white"/>
+</svg>
+
+
