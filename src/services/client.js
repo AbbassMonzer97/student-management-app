@@ -7,11 +7,6 @@ const client = axios.create({
 });
 client.interceptors.request.use(
   (config) => {
-    if (import.meta.env.DEV) {
-      console.log(
-        `[API Request] ${config.method?.toUpperCase()} ${config.url}`
-      );
-    }
     return config;
   },
   (error) => {
@@ -24,26 +19,22 @@ client.interceptors.response.use(
   },
   (error) => {
     let errorMessage = "An unexpected error occurred";
-    // Check if response data is an object (JSON) or HTML string
     const responseData = error.response?.data;
     if (
       responseData &&
       typeof responseData === "object" &&
       !Array.isArray(responseData)
     ) {
-      // JSON response
       errorMessage =
         responseData.message ||
         responseData.title ||
         error.message ||
         "An unexpected error occurred";
     } else if (responseData && typeof responseData === "string") {
-      // HTML or plain text response
       if (
         responseData.includes("<!DOCTYPE") ||
         responseData.includes("<html")
       ) {
-        // HTML error page - use status-based message
         if (error.response?.status === 500) {
           errorMessage = "Internal server error";
         } else if (error.response?.status === 404) {
@@ -57,11 +48,9 @@ client.interceptors.response.use(
           errorMessage = error.message || "An unexpected error occurred";
         }
       } else {
-        // Plain text response
         errorMessage = responseData;
       }
     } else {
-      // No response data or other format
       errorMessage = error.message || "An unexpected error occurred";
     }
     if (import.meta.env.DEV) {
